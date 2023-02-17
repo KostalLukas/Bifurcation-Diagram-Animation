@@ -1,6 +1,6 @@
 /*
- * Bifurcation Diagram Animation v2.0
- * Lukas Kostal, 10.2.2023, ICL
+ * Bifurcation Diagram Animation v2.2
+ * Lukas Kostal, 17.2.2023, ICL
  */
 
 #include <iostream>
@@ -32,7 +32,7 @@ int get_ord(int num) {
 int main() {
 
     // animation name
-    string name = "Gauss_Map_3";
+    string name = "Gauss_Map";
 
     // resolution
     int x_res = 1080; //4200
@@ -40,16 +40,21 @@ int main() {
     int inc = 2;
 
     // number of frames and fps
-    int n_frm = 140;
+    int n_frm = 120;
     int fps = 20;
+
+    // LUT settings
+    bool lut_use = true;
+    string lut_path = "Fire.lut";
+    string dlmtr = "\t";
 
     // range of values of r
     float r_min = -1;
     float r_max = 0.8;
 
     // range of values of t
-    float t_min = 3;
-    float t_max = 13;
+    float t_min = 2;
+    float t_max = 16;
 
     // range of inital values of x
     float xi_min = 0;
@@ -58,6 +63,8 @@ int main() {
     // number of points per r and no of iterations
     int n_pts = 2000 ;
     int n_iter = 10;
+
+    vector<vector<int>> lut_vec(256, vector<int> (3, 0));
 
     string frm_name;
     float prog;
@@ -78,6 +85,34 @@ int main() {
     int y_ind;
 
     int img_val;
+
+    // load LUT to be used
+    if (lut_use == true) {
+        ifstream lut(lut_path);
+
+        string str;
+        int i=0;
+        while (getline(lut, str)) {
+            // skip the first row i=0
+            if (i != 0) {
+                // get position of first delimiter
+                int pos = str.find(dlmtr);
+                // erase first column since it just contains index
+                str.erase(0, pos + dlmtr.length());
+
+                // loop to read the r, g, b values for each index
+                for (int j=0; j < 3; j++) {
+                    // get position of next delimiter
+                    pos = str.find(dlmtr);
+                    // convert the string between delimiters into int and write to the vector
+                    // note index i is offset by -1 since first row was skipped so start at i=1
+                    lut_vec[i-1][j] = stoi(str.substr(0, pos));
+                    str.erase(0, pos + dlmtr.length());
+                }
+            }
+            i++;
+        }
+    }
 
     // print animation parameters
     cout << "animation:     " << name << endl;
@@ -184,7 +219,14 @@ int main() {
         for (int i = 0; i < y_res; i++) {
             for (int j = 0; j < x_res; j++) {
                 img_val = +img_vec[j][y_res - i];
-                image << img_val << " " << img_val << " " << img_val << endl;
+
+                // if using lut use it to find rgb values otherwise use same val for all rgb
+                if (lut_use == true) {
+                    image << lut_vec[img_val][0] << " " << lut_vec[img_val][1] << " " << lut_vec[img_val][2] << endl;
+                }
+                else {
+                    image << img_val << " " << img_val << " " << img_val << endl;
+                }
             }
         }
 
@@ -197,8 +239,12 @@ int main() {
 
     }
 
-    // convert frames into .mp4 video with specified framerate
+    // new line for messages from ffmpeg
+    cout << "\n" << endl;
+
+    // call ffmpeg to convert frames into .mp4 video with specified framerate
     system(("ffmpeg -r " + to_string(fps) + " -f image2 -s " + to_string(x_res) + "x" + to_string(y_res) + " -i frm_%0" \
-            + to_string(get_ord(n_frm)+1) + "d.png -vcodec libx264 -crf 25  -pix_fmt yuv420p" + name + ".mp4").c_str());
+            + to_string(get_ord(n_frm)+1) + "d.png -vcodec libx264 -crf 25  -pix_fmt yuv420p " + name + ".mp4").c_str());
+
     return 0;
 }
